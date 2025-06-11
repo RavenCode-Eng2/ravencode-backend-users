@@ -10,6 +10,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.DB.database import get_database
+from app.models.auth import User, UserCreate, Token, TokenData, PasswordResetRequest, PasswordReset
 
 class AuthService:
     """
@@ -68,7 +69,7 @@ class AuthService:
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         return encoded_jwt
 
-    def authenticate_student(self, email: str, password: str) -> Optional[Dict[str, Any]]:
+    def authenticate_student(self, email: str, password: str) -> Optional[Token]:
         """
         Authenticate a student and return an access token if successful.
         
@@ -77,8 +78,8 @@ class AuthService:
             password: The student's password
             
         Returns:
-            Optional[Dict[str, Any]]: Dictionary containing access token and type if successful,
-                                     None if authentication fails
+            Optional[Token]: Token object containing access token and type if successful,
+                           None if authentication fails
         """
         student = self.student_service.get_student_by_email(email)
         if not student:
@@ -90,10 +91,10 @@ class AuthService:
         access_token = self.create_access_token(
             data={"sub": email}, expires_delta=access_token_expires
         )
-        return {
-            "access_token": access_token,
-            "token_type": "bearer"
-        }
+        return Token(
+            access_token=access_token,
+            token_type="bearer"
+        )
 
     def generate_recovery_code(self, email: str) -> str:
         """
