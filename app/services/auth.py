@@ -10,7 +10,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.DB.database import get_database
-from app.models.auth import User, UserCreate, Token, TokenData, PasswordResetRequest, PasswordReset
+from app.models.auth import Token
 
 class AuthService:
     """
