@@ -10,7 +10,10 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.DB.database import get_database
-from app.models.auth import Token
+from app.models.auth import Token, User, TokenData
+from app.models.role import Role
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 
 class AuthService:
     """
@@ -51,7 +54,7 @@ class AuthService:
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """
-        Create a JWT access token.
+        Create a JWT access token with role information.
         
         Args:
             data: The data to encode in the token
@@ -69,16 +72,44 @@ class AuthService:
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         return encoded_jwt
 
-    def authenticate_student(self, email: str, password: str) -> Optional[Token]:
+    async def get_current_user(self, token: str = Depends(OAuth2PasswordBearer(tokenUrl="login"))):
         """
-        Authenticate a student and return an access token if successful.
+        Get the current user from the JWT token.
+        """
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            email: str = payload.get("sub")
+            if email is None:
+                raise credentials_exception
+            token_data = TokenData(email=email, role=Role(payload.get("role", Role.STUDENT)))
+        except JWTError:
+            raise credentials_exception
+        
+        student = self.student_service.get_student_by_email(token_data.email)
+        if student is None:
+            raise credentials_exception
+        
+        return User(
+            email=student["Correo_electronico"],
+            is_active=True,
+            role=token_data.role
+        )
+
+    def authenticate_student(self, email: str, password: str) -> Optional[Dict[str, Any]]:
+        """
+        Authenticate a student and return a JWT token.
         
         Args:
             email: The student's email
             password: The student's password
             
         Returns:
-            Optional[Token]: Token object containing access token and type if successful,
+            Optional[Dict[str, Any]]: Token object containing access token and type if successful,
                            None if authentication fails
         """
         student = self.student_service.get_student_by_email(email)
@@ -87,14 +118,18 @@ class AuthService:
         if not self.verify_password(password, student["Contrasena"]):
             return None
         
+        # Determine role (you might want to implement your own logic here)
+        role = Role.ADMIN if email.endswith("@admin.com") else Role.STUDENT
+        
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = self.create_access_token(
-            data={"sub": email}, expires_delta=access_token_expires
+            data={"sub": email, "role": role},
+            expires_delta=access_token_expires
         )
-        return Token(
-            access_token=access_token,
-            token_type="bearer"
-        )
+        return {
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
 
     def generate_recovery_code(self, email: str) -> str:
         """

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List, Dict, Any
-
 from app.models.student import Student
 from app.services.student import StudentService
+from app.core.guards import require_admin, require_student, require_any_authenticated
+from app.models.role import Permission, require_permissions
 
 router = APIRouter()
 
@@ -14,38 +15,17 @@ def get_student_service():
     return StudentService()
 
 @router.post(
-    "/students/",
+    "/register/",
     response_model=Dict[str, Any],
-    status_code=status.HTTP_201_CREATED,
-    responses={
-        201: {
-            "description": "Student created successfully",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "Student created successfully",
-                        "student": {
-                            "Nombre": "Jorge",
-                            "Correo_electronico": "user@example.com",
-                            "Contrasena": "string",
-                            "Fecha_de_nacimiento": "2025-06-08",
-                            "Foto_de_perfil": "string",
-                            "Institucion_educativa": "string",
-                            "Grado_academico": "string",
-                            "_id": "60c72b2f9b1e8b3f8c8e4b1a"
-                        }
-                    }
-                }
-            }
-        },
-        400: {"description": "Student already exists or invalid data"}
-    }
+    status_code=status.HTTP_201_CREATED
 )
-async def create_student(student: Student, student_service: StudentService = Depends(get_student_service)):
+async def create_student(
+    student: Student, 
+    student_service: StudentService = Depends(get_student_service)
+):
     """
-    Create a new student in the database.
-    - **student**: Student data to be created
-    - **returns**: Confirmation message and the created student
+    Register a new student in the database.
+    Public endpoint - no authentication required.
     """
     try:
         created_student = student_service.create_student(student)
@@ -57,36 +37,29 @@ async def create_student(student: Student, student_service: StudentService = Dep
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get(
-    "/students/{student_email}",
+    "/obtener/{student_email}",
     response_model=Dict[str, Any],
-    responses={
-        200: {
-            "description": "Student found",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "Nombre": "Jorge",
-                        "Correo_electronico": "user@example.com",
-                        "Contrasena": "string",
-                        "Fecha_de_nacimiento": "2025-06-08",
-                        "Foto_de_perfil": "string",
-                        "Institucion_educativa": "string",
-                        "Grado_academico": "string",
-                        "_id": "60c72b2f9b1e8b3f8c8e4b1a"
-                    }
-                }
-            }
-        },
-        404: {"description": "Student not found"}
-    }
+    dependencies=[Depends(require_any_authenticated)]
 )
-async def get_student(student_email: str, student_service: StudentService = Depends(get_student_service)):
+async def get_student(
+    student_email: str, 
+    student_service: StudentService = Depends(get_student_service),
+    current_user: User = Depends(require_any_authenticated)
+):
     """
     Get a student by their email address.
-    - **student_email**: Email of the student to retrieve
-    - **returns**: Student data if found
+    Requires authentication.
+    Students can only view their own profile.
+    Admins can view any profile.
     """
     try:
+        # Check if user has permission to view this profile
+        if current_user.role == Role.STUDENT and current_user.email != student_email:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only view your own profile"
+            )
+
         student = student_service.get_student_by_email(student_email)
         if not student:
             raise HTTPException(status_code=404, detail="Student not found")
@@ -95,41 +68,29 @@ async def get_student(student_email: str, student_service: StudentService = Depe
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put(
-    "/students/{student_email}",
+    "/modificacion/{student_email}",
     response_model=Dict[str, Any],
-    responses={
-        200: {
-            "description": "Student updated successfully",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "Student updated successfully",
-                        "student": {
-                            "Nombre": "Jorge",
-                            "Correo_electronico": "user@example.com",
-                            "Contrasena": "string",
-                            "Fecha_de_nacimiento": "2025-06-08",
-                            "Foto_de_perfil": "string",
-                            "Institucion_educativa": "string",
-                            "Grado_academico": "string",
-                            "_id": "60c72b2f9b1e8b3f8c8e4b1a"
-                        }
-                    }
-                }
-            }
-        },
-        404: {"description": "Student not found"},
-        400: {"description": "Invalid data or no changes made"}
-    }
+    dependencies=[Depends(require_any_authenticated)]
 )
-async def update_student(student_email: str, updated_student: Student, student_service: StudentService = Depends(get_student_service)):
+async def update_student(
+    student_email: str, 
+    updated_student: Student, 
+    student_service: StudentService = Depends(get_student_service),
+    current_user: User = Depends(require_any_authenticated)
+):
     """
     Update a student's information in the database.
-    - **student_email**: Email of the student to update
-    - **updated_student**: New data for the student
-    - **returns**: Confirmation message and the updated student
+    Students can only update their own profile.
+    Admins can update any profile.
     """
     try:
+        # Check if user has permission to update this profile
+        if current_user.role == Role.STUDENT and current_user.email != student_email:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only update your own profile"
+            )
+
         updated_student_data = student_service.update_student(student_email, updated_student)
         return {
             "message": "Student updated successfully",
@@ -141,18 +102,17 @@ async def update_student(student_email: str, updated_student: Student, student_s
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete(
-    "/students/{student_email}",
+    "/eliminar/{student_email}",
     response_model=Dict[str, str],
-    responses={
-        200: {"description": "Student deleted successfully", "content": {"application/json": {"example": {"message": "Student deleted successfully"}}}},
-        404: {"description": "Student not found"}
-    }
+    dependencies=[Depends(require_admin)]
 )
-async def delete_student(student_email: str, student_service: StudentService = Depends(get_student_service)):
+async def delete_student(
+    student_email: str, 
+    student_service: StudentService = Depends(get_student_service)
+):
     """
     Delete a student by their email address.
-    - **student_email**: Email of the student to delete
-    - **returns**: Confirmation message
+    Only admins can delete students.
     """
     try:
         student_service.delete_student_by_email(student_email)
@@ -163,34 +123,16 @@ async def delete_student(student_email: str, student_service: StudentService = D
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get(
-    "/students/",
+    "/listar/",
     response_model=List[Dict[str, Any]],
-    responses={
-        200: {
-            "description": "List of all students",
-            "content": {
-                "application/json": {
-                    "example": [
-                        {
-                            "Nombre": "Jorge",
-                            "Correo_electronico": "user@example.com",
-                            "Contrasena": "string",
-                            "Fecha_de_nacimiento": "2025-06-08",
-                            "Foto_de_perfil": "string",
-                            "Institucion_educativa": "string",
-                            "Grado_academico": "string",
-                            "_id": "60c72b2f9b1e8b3f8c8e4b1a"
-                        }
-                    ]
-                }
-            }
-        }
-    }
+    dependencies=[Depends(require_admin)]
 )
-async def list_students(student_service: StudentService = Depends(get_student_service)):
+async def list_students(
+    student_service: StudentService = Depends(get_student_service)
+):
     """
     List all students in the database.
-    - **returns**: List of all students
+    Only admins can list all students.
     """
     try:
         return student_service.list_students()

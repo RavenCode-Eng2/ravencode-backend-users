@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
+from .role import Role
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -13,9 +14,13 @@ class User(UserBase):
     id: str
     created_at: datetime
     updated_at: datetime
+    role: Role = Role.STUDENT  # Default role is student
 
     class Config:
         from_attributes = True
+
+class UserInDB(User):
+    hashed_password: str
 
 class Token(BaseModel):
     access_token: str
@@ -23,6 +28,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+    role: Optional[Role] = None
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr

@@ -3,9 +3,11 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from typing import Dict, Any
 from pydantic import BaseModel, EmailStr
 from app.services.auth import AuthService
+from app.core.guards import require_admin, require_any_authenticated
+from app.models.role import Role
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
 class Token(BaseModel):
     access_token: str
@@ -33,6 +35,7 @@ async def login_for_access_token(
 ):
     """
     OAuth2 compatible token login, get an access token for future requests.
+    Public endpoint - no authentication required.
     """
     auth_result = auth_service.authenticate_student(form_data.username, form_data.password)
     if not auth_result:
@@ -53,6 +56,7 @@ async def request_password_recovery(
 ):
     """
     Request a password recovery code to be sent to the student's email.
+    Public endpoint - no authentication required.
     """
     try:
         # Check if student exists
@@ -81,6 +85,7 @@ async def verify_recovery_code(
 ):
     """
     Verify recovery code and update password.
+    Public endpoint - no authentication required.
     """
     try:
         # Verify the code
