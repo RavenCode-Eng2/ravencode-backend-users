@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, student
+from app.api import auth, student, user
 
 app = FastAPI(
     title="Student Management API",
@@ -20,6 +20,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(student.router, prefix="/students", tags=["Students"])
+app.include_router(user.router, prefix="/user", tags=["User"])
 
 @app.get("/")
 async def root():
