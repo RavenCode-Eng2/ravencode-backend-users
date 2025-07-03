@@ -29,7 +29,7 @@ Este repositorio forma parte del proyecto **RavenCode**, una plataforma de apren
 ```
 5. Ejecutar el servidor
 ```bash
-   uvicorn main:app --reload --port 8001
+   uvicorn app.main:app --reload --port 8001
 ```
 6. Verificar en el navegador:
 http://localhost:8001/api
