@@ -78,7 +78,6 @@ Esta API proporciona endpoints para:
 • Actualización de perfiles - Modificar información personal
 • Listado de usuarios - Obtener todos los usuarios del sistema
 
-
 👤 PERFIL DE USUARIO
 • Información personal - Obtener datos del usuario autenticado
 • Gestión de perfil - Administrar información del usuario
@@ -124,10 +123,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(user.router, prefix="/users", tags=["Users"])
-
 
 # Middleware para registrar métricas
 @app.middleware("http")
@@ -154,12 +153,20 @@ async def record_metrics(request, call_next):
 
     return response
 
+# Include routers
+app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+app.include_router(user.router, prefix="/users", tags=["Users"])
+
 # Ruta para exponer las métricas en formato Prometheus
 @app.get("/metrics")
 async def metrics():
+    """
+    Endpoint para métricas de Prometheus
+    
+    Proporciona métricas de la aplicación en formato Prometheus para monitoreo.
+    """
     data = generate_latest()
     return Response(content=data, media_type=CONTENT_TYPE_LATEST)
-
 
 # Middleware para registrar métricas
 @app.middleware("http")
