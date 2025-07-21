@@ -7,7 +7,7 @@ load_dotenv()
 
 # MongoDB connection settings
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-DATABASE_NAME = "ravencode_db"
+DATABASE_NAME = "ravencode_users"
 
 def get_database():
     """

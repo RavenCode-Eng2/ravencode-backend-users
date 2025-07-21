@@ -18,11 +18,29 @@ class User(UserBase):
         from_attributes = True
 
 class Token(BaseModel):
+    """Token response model with both access and refresh tokens."""
     access_token: str
-    token_type: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # Access token expiration in seconds
 
 class TokenData(BaseModel):
-    email: Optional[str] = None
+    """Token payload data."""
+    email: str | None = None
+    role: str | None = None
+
+class RefreshTokenRequest(BaseModel):
+    """Request model for refresh token endpoint."""
+    refresh_token: str
+
+class RefreshTokenData(BaseModel):
+    """Refresh token data stored in database."""
+    user_email: str
+    refresh_token: str
+    expires_at: datetime
+    is_active: bool = True
+    created_at: datetime
+    last_used: datetime | None = None
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
